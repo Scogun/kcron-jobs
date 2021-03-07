@@ -2,6 +2,7 @@ package com.ucasoft.kcron
 
 import android.content.Context
 import androidx.work.OneTimeWorkRequest
+import androidx.work.Operation
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import kotlinx.datetime.*
@@ -26,11 +27,16 @@ class KCronJobManager(context: Context) {
         val request = OneTimeWorkRequest.Builder(clazz)
             .addTag(innerUUID.toString())
             .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
-            .setInputData(workDataOf("cronExpression" to expression)).build()
-        if (workManager.enqueue(request).result.isDone) {
+            .setInputData(workDataOf("cronExpression" to expression, "innerId" to innerUUID.toString())).build()
+        val result = workManager.enqueue(request).result.get()
+        if (result is Operation.State.SUCCESS) {
             return innerUUID
         }
         throw Exception()
+    }
+
+    fun removeJob(jobUUID: UUID) {
+        workManager.cancelAllWorkByTag(jobUUID.toString())
     }
 
     companion object {
@@ -44,8 +50,20 @@ class KCronJobManager(context: Context) {
             }
 
         internal fun calculateDelaySeconds(expression: String) : Long {
-            val nextRun = KCron.parseAndBuild(expression).nextRun ?: return -1
-            return Clock.System.now().until(nextRun.toInstant(TimeZone.currentSystemDefault()), DateTimeUnit.SECOND, TimeZone.currentSystemDefault())
+            val nextRun = KCron.parseAndBuild(expression).nextRunList(2) ?: return -1
+            var delay = Clock.System.now().until(
+                nextRun[0].toInstant(TimeZone.currentSystemDefault()),
+                DateTimeUnit.SECOND,
+                TimeZone.currentSystemDefault()
+            )
+            if (delay < 1) {
+                delay = Clock.System.now().until(
+                    nextRun[1].toInstant(TimeZone.currentSystemDefault()),
+                    DateTimeUnit.SECOND,
+                    TimeZone.currentSystemDefault()
+                )
+            }
+            return delay
         }
     }
 }

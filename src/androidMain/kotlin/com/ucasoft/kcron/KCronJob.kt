@@ -12,7 +12,7 @@ actual abstract class KCronJob(private val context: Context, workerParams: Worke
         }
 
         val cronExpression = inputData.getString(cronExpressionKey)!!
-        val uuidTag = UUID.fromString(tags.elementAt(1))!!
+        val uuidTag = UUID.fromString(inputData.getString(innerIdKey))
         KCronJobManager.getInstance(context).runJob(this::class.java, cronExpression, uuidTag)
         return Result.success()
     }
@@ -21,5 +21,6 @@ actual abstract class KCronJob(private val context: Context, workerParams: Worke
 
     companion object {
         private const val cronExpressionKey = "cronExpression"
+        private const val innerIdKey = "innerId"
     }
 }
